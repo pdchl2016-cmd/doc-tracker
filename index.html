@@ -23,14 +23,16 @@ label{font-size:13px;color:#666;font-weight:500}
 select,input,textarea{width:100%;font-family:sans-serif;font-size:15px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#1a1a1a}
 textarea{resize:vertical;min-height:72px}
 .file-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
-.file-box{border:1.5px dashed #ccc;border-radius:8px;padding:10px 6px;text-align:center;cursor:pointer;background:#fafafa;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.file-box{border:1.5px dashed #ccc;border-radius:8px;padding:10px 6px;text-align:center;cursor:pointer;background:#fafafa;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative}
 .file-box.has-file{border-color:#2563eb;background:#eff6ff}
+.file-box.uploading{border-color:#f59e0b;background:#fffbeb}
 .file-box-label{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:#888;font-size:12px;width:100%}
 .file-icon{font-size:22px}
 .file-name{font-size:11px;color:#2563eb;word-break:break-all;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
 .file-clear{font-size:11px;color:#ef4444;cursor:pointer;background:none;border:none;padding:0;margin-top:2px;font-family:sans-serif}
+.upload-progress{font-size:11px;color:#f59e0b;margin-top:2px}
 .btn-submit{width:100%;padding:12px;font-size:16px;font-weight:600;cursor:pointer;background:#2563eb;color:#fff;border:none;border-radius:8px;margin-top:4px}
-.btn-submit:active{background:#1d4ed8}
+.btn-submit:disabled{background:#93c5fd;cursor:not-allowed}
 .badge{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;white-space:nowrap}
 .badge-wait{background:#fef3c7;color:#92400e}
 .badge-sent{background:#d1fae5;color:#065f46}
@@ -53,7 +55,8 @@ textarea{resize:vertical;min-height:72px}
 .btn-save-loc{padding:7px 12px;border-radius:6px;background:#2563eb;color:#fff;border:none;font-size:13px;cursor:pointer;font-family:sans-serif}
 .btn-cancel-loc{padding:7px 12px;border-radius:6px;background:#f5f5f3;color:#666;border:1px solid #ddd;font-size:13px;cursor:pointer;font-family:sans-serif}
 .doc-attachments{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.attach-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:4px 8px;border:1px solid #e5e5e5;border-radius:16px;color:#666;background:#fafafa}
+.attach-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:6px 10px;border:1px solid #bfdbfe;border-radius:16px;color:#1d4ed8;background:#eff6ff;cursor:pointer;text-decoration:none}
+.attach-chip:hover{background:#dbeafe}
 .btn-row{display:flex;gap:8px;margin-top:10px}
 .action-btn{flex:1;font-size:13px;padding:8px;cursor:pointer;border-radius:8px;border:1px solid #ddd;background:#f5f5f3;color:#1a1a1a;font-family:sans-serif}
 .del-btn{padding:8px 12px;cursor:pointer;border-radius:8px;border:1px solid #fca5a5;background:#fef2f2;color:#ef4444;font-size:13px;font-family:sans-serif}
@@ -78,17 +81,12 @@ textarea{resize:vertical;min-height:72px}
 </style>
 </head>
 <body>
-
-<div class="header">
-  <h1>📄 ระบบติดตามเอกสาร</h1>
-</div>
-
+<div class="header"><h1>📄 ระบบติดตามเอกสาร</h1></div>
 <div class="sync-bar">
   <div class="sync-dot" id="sync-dot"></div>
   <span id="sync-status">กำลังโหลดข้อมูล...</span>
   <button onclick="loadDocs()" style="margin-left:auto;font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid #ddd;background:#fff;cursor:pointer;color:#666">↻ รีเฟรช</button>
 </div>
-
 <div class="tabs">
   <button class="tab active" onclick="switchTab('add')">+ เพิ่มเอกสาร</button>
   <button class="tab" onclick="switchTab('list')">☰ รายการ</button>
@@ -131,34 +129,25 @@ textarea{resize:vertical;min-height:72px}
   <label style="font-size:13px;color:#666;font-weight:500;display:block;margin-bottom:8px">แนบไฟล์เอกสาร (รูปหรือ PDF ไม่เกิน 3 ไฟล์)</label>
   <div class="file-grid">
     <div class="file-box" id="fbox-1">
-      <label class="file-box-label" for="f-file1">
-        <span class="file-icon">📎</span>
-        ไฟล์ที่ 1
-        <input type="file" id="f-file1" accept="image/*,.pdf" style="display:none" onchange="pickFile(1)">
-      </label>
+      <label class="file-box-label" for="f-file1"><span class="file-icon">📎</span>ไฟล์ที่ 1<input type="file" id="f-file1" accept="image/*,.pdf" style="display:none" onchange="pickFile(1)"></label>
       <div class="file-name" id="fname-1"></div>
+      <div class="upload-progress" id="fprog-1" style="display:none">กำลังอัปโหลด...</div>
       <button class="file-clear" id="fclear-1" style="display:none" onclick="clearFile(1)">✕ ลบ</button>
     </div>
     <div class="file-box" id="fbox-2">
-      <label class="file-box-label" for="f-file2">
-        <span class="file-icon">📎</span>
-        ไฟล์ที่ 2
-        <input type="file" id="f-file2" accept="image/*,.pdf" style="display:none" onchange="pickFile(2)">
-      </label>
+      <label class="file-box-label" for="f-file2"><span class="file-icon">📎</span>ไฟล์ที่ 2<input type="file" id="f-file2" accept="image/*,.pdf" style="display:none" onchange="pickFile(2)"></label>
       <div class="file-name" id="fname-2"></div>
+      <div class="upload-progress" id="fprog-2" style="display:none">กำลังอัปโหลด...</div>
       <button class="file-clear" id="fclear-2" style="display:none" onclick="clearFile(2)">✕ ลบ</button>
     </div>
     <div class="file-box" id="fbox-3">
-      <label class="file-box-label" for="f-file3">
-        <span class="file-icon">📎</span>
-        ไฟล์ที่ 3
-        <input type="file" id="f-file3" accept="image/*,.pdf" style="display:none" onchange="pickFile(3)">
-      </label>
+      <label class="file-box-label" for="f-file3"><span class="file-icon">📎</span>ไฟล์ที่ 3<input type="file" id="f-file3" accept="image/*,.pdf" style="display:none" onchange="pickFile(3)"></label>
       <div class="file-name" id="fname-3"></div>
+      <div class="upload-progress" id="fprog-3" style="display:none">กำลังอัปโหลด...</div>
       <button class="file-clear" id="fclear-3" style="display:none" onclick="clearFile(3)">✕ ลบ</button>
     </div>
   </div>
-  <button class="btn-submit" onclick="addDoc()">บันทึกเอกสาร</button>
+  <button class="btn-submit" id="btn-save" onclick="addDoc()">บันทึกเอกสาร</button>
 </div>
 
 <div id="tab-list" class="section">
@@ -195,35 +184,76 @@ textarea{resize:vertical;min-height:72px}
     </div>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbyFJVWASiQjU5VNhKrq-OJVLvkUIYzblz2vwnSUx0PmUjsalAQrg_XeYUyLu75ODS-5/exec';
 let docs = [];
 let pendingId = null;
-let fileNames = {1:'',2:'',3:''};
+let fileData = {1:{name:'',url:''},2:{name:'',url:''},3:{name:'',url:''}};
 
-function pickFile(n) {
-  const f = document.getElementById('f-file'+n).files[0];
-  if(!f) return;
-  fileNames[n] = f.name;
-  document.getElementById('fname-'+n).textContent = f.name;
-  document.getElementById('fclear-'+n).style.display = '';
-  document.getElementById('fbox-'+n).classList.add('has-file');
+async function uploadFile(n, file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      try {
+        const base64 = e.target.result.split(',')[1];
+        const url = new URL(API);
+        url.searchParams.set('action', 'upload');
+        url.searchParams.set('filename', file.name);
+        url.searchParams.set('mimetype', file.type || 'application/octet-stream');
+        url.searchParams.set('data', base64);
+        const res = await fetch(url.toString(), {redirect:'follow'});
+        const data = await res.json();
+        if(data.ok) resolve(data);
+        else reject(data.error);
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
+
+async function pickFile(n) {
+  const file = document.getElementById('f-file'+n).files[0];
+  if(!file) return;
+  document.getElementById('fname-'+n).textContent = file.name;
+  document.getElementById('fprog-'+n).style.display = '';
+  document.getElementById('fbox-'+n).classList.add('uploading');
+  document.getElementById('fbox-'+n).classList.remove('has-file');
+  document.getElementById('btn-save').disabled = true;
+  try {
+    const result = await uploadFile(n, file);
+    fileData[n] = {name: file.name, url: result.url};
+    document.getElementById('fprog-'+n).style.display = 'none';
+    document.getElementById('fbox-'+n).classList.remove('uploading');
+    document.getElementById('fbox-'+n).classList.add('has-file');
+    document.getElementById('fclear-'+n).style.display = '';
+    showToast('อัปโหลดไฟล์ที่ '+n+' สำเร็จ ✓');
+  } catch(err) {
+    document.getElementById('fprog-'+n).textContent = 'อัปโหลดไม่สำเร็จ';
+    document.getElementById('fbox-'+n).classList.remove('uploading');
+    showToast('อัปโหลดไฟล์ไม่สำเร็จ');
+  }
+  // check if all uploads done
+  const anyUploading = [1,2,3].some(i => document.getElementById('fprog-'+i).style.display !== 'none' && document.getElementById('fprog-'+i).textContent === 'กำลังอัปโหลด...');
+  if(!anyUploading) document.getElementById('btn-save').disabled = false;
+}
+
 function clearFile(n) {
-  fileNames[n] = '';
+  fileData[n] = {name:'',url:''};
   document.getElementById('f-file'+n).value = '';
   document.getElementById('fname-'+n).textContent = '';
+  document.getElementById('fprog-'+n).style.display = 'none';
+  document.getElementById('fprog-'+n).textContent = 'กำลังอัปโหลด...';
   document.getElementById('fclear-'+n).style.display = 'none';
-  document.getElementById('fbox-'+n).classList.remove('has-file');
+  document.getElementById('fbox-'+n).classList.remove('has-file','uploading');
 }
 function clearAllFiles() { [1,2,3].forEach(n => clearFile(n)); }
 
 function setSyncStatus(state, msg) {
   const dot = document.getElementById('sync-dot');
-  dot.className = 'sync-dot' + (state==='loading'?' loading':state==='error'?' error':'');
+  dot.className = 'sync-dot'+(state==='loading'?' loading':state==='error'?' error':'');
   document.getElementById('sync-status').textContent = msg;
 }
 
@@ -241,15 +271,15 @@ async function loadDocs() {
   try {
     const data = await callAPI({action:'getAll'});
     if(data.ok) {
-      docs = (data.docs || []).reverse();
-      setSyncStatus('ok', 'ซิงค์แล้ว · ' + new Date().toLocaleTimeString('th-TH'));
+      docs = (data.docs||[]).reverse();
+      setSyncStatus('ok', 'ซิงค์แล้ว · '+new Date().toLocaleTimeString('th-TH'));
       renderList(); renderSummary();
     } else setSyncStatus('error', 'โหลดไม่สำเร็จ');
   } catch(e) { setSyncStatus('error', 'เชื่อมต่อไม่ได้'); }
 }
 
 function switchTab(t) {
-  document.querySelectorAll('.tab').forEach((b,i) => b.classList.toggle('active', ['add','list','summary'][i]===t));
+  document.querySelectorAll('.tab').forEach((b,i) => b.classList.toggle('active',['add','list','summary'][i]===t));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
   if(t==='list') renderList();
@@ -265,14 +295,15 @@ function showToast(msg) {
 async function addDoc() {
   const co = document.getElementById('f-company').value;
   const desc = document.getElementById('f-desc').value.trim();
-  if(!co || !desc) { showToast('กรุณากรอกบริษัทและชื่อรายการ'); return; }
+  if(!co||!desc) { showToast('กรุณากรอกบริษัทและชื่อรายการ'); return; }
   const doc = {
     id: Date.now(), co, desc,
     amount: document.getElementById('f-amount').value,
     date: document.getElementById('f-date').value,
     loc: document.getElementById('f-location').value.trim(),
     note: document.getElementById('f-note').value.trim(),
-    file1: fileNames[1], file2: fileNames[2], file3: fileNames[3],
+    file1: fileData[1].name, file2: fileData[2].name, file3: fileData[3].name,
+    file1url: fileData[1].url, file2url: fileData[2].url, file3url: fileData[3].url,
     status: 'รอเอกสาร', receiver: '',
     created: new Date().toLocaleDateString('th-TH')
   };
@@ -285,7 +316,7 @@ async function addDoc() {
       showToast('บันทึกเรียบร้อย ✓');
       await loadDocs();
     } else showToast('บันทึกไม่สำเร็จ');
-  } catch(e) { setSyncStatus('error', 'บันทึกไม่สำเร็จ'); }
+  } catch(e) { setSyncStatus('error','บันทึกไม่สำเร็จ'); }
 }
 
 function openSentModal(id) {
@@ -294,50 +325,50 @@ function openSentModal(id) {
   document.getElementById('modal-sent').classList.add('open');
   setTimeout(() => document.getElementById('modal-name').focus(), 100);
 }
-function closeModal() { document.getElementById('modal-sent').classList.remove('open'); pendingId = null; }
+function closeModal() { document.getElementById('modal-sent').classList.remove('open'); pendingId=null; }
 
 async function confirmSent() {
   const name = document.getElementById('modal-name').value.trim();
   if(!name) { document.getElementById('modal-name').focus(); return; }
   const d = docs.find(x => x.id == pendingId);
-  if(d) { d.status = 'sent'; d.receiver = name; }
+  if(d) { d.status='sent'; d.receiver=name; }
   closeModal();
-  setSyncStatus('loading', 'กำลังอัปเดต...');
-  try { const res = await callAPI({action:'update', doc:d}); if(res.ok) { showToast('ส่งให้คุณ'+name+' เรียบร้อย ✓'); await loadDocs(); } }
-  catch(e) { setSyncStatus('error', 'อัปเดตไม่สำเร็จ'); }
+  setSyncStatus('loading','กำลังอัปเดต...');
+  try { const res = await callAPI({action:'update',doc:d}); if(res.ok) { showToast('ส่งให้คุณ'+name+' เรียบร้อย ✓'); await loadDocs(); } }
+  catch(e) { setSyncStatus('error','อัปเดตไม่สำเร็จ'); }
 }
 
 async function undoSent(id) {
-  const d = docs.find(x => x.id == id);
-  if(d) { d.status = 'รอเอกสาร'; d.receiver = ''; }
-  setSyncStatus('loading', 'กำลังอัปเดต...');
-  try { await callAPI({action:'update', doc:d}); await loadDocs(); showToast('ย้อนสถานะแล้ว'); }
-  catch(e) { setSyncStatus('error', 'อัปเดตไม่สำเร็จ'); }
+  const d = docs.find(x => x.id==id);
+  if(d) { d.status='รอเอกสาร'; d.receiver=''; }
+  setSyncStatus('loading','กำลังอัปเดต...');
+  try { await callAPI({action:'update',doc:d}); await loadDocs(); showToast('ย้อนสถานะแล้ว'); }
+  catch(e) { setSyncStatus('error','อัปเดตไม่สำเร็จ'); }
 }
 
 async function deleteDoc(id) {
   if(!confirm('ลบรายการนี้?')) return;
-  setSyncStatus('loading', 'กำลังลบ...');
-  try { await callAPI({action:'delete', id}); await loadDocs(); showToast('ลบแล้ว'); }
-  catch(e) { setSyncStatus('error', 'ลบไม่สำเร็จ'); }
+  setSyncStatus('loading','กำลังลบ...');
+  try { await callAPI({action:'delete',id}); await loadDocs(); showToast('ลบแล้ว'); }
+  catch(e) { setSyncStatus('error','ลบไม่สำเร็จ'); }
 }
 
 function showLocEdit(id) {
-  document.getElementById('loc-view-'+id).style.display = 'none';
-  const ed = document.getElementById('loc-edit-'+id);
+  document.getElementById('loc-view-'+id).style.display='none';
+  const ed=document.getElementById('loc-edit-'+id);
   ed.classList.add('open'); ed.querySelector('input').focus();
 }
 function cancelLocEdit(id) {
-  document.getElementById('loc-view-'+id).style.display = '';
+  document.getElementById('loc-view-'+id).style.display='';
   document.getElementById('loc-edit-'+id).classList.remove('open');
 }
 async function saveLocEdit(id) {
-  const val = document.getElementById('loc-input-'+id).value.trim();
-  const d = docs.find(x => x.id == id);
-  if(d) d.loc = val;
-  setSyncStatus('loading', 'กำลังอัปเดต...');
-  try { await callAPI({action:'update', doc:d}); await loadDocs(); showToast('อัปเดตตำแหน่งแล้ว ✓'); }
-  catch(e) { setSyncStatus('error', 'อัปเดตไม่สำเร็จ'); }
+  const val=document.getElementById('loc-input-'+id).value.trim();
+  const d=docs.find(x=>x.id==id);
+  if(d) d.loc=val;
+  setSyncStatus('loading','กำลังอัปเดต...');
+  try { await callAPI({action:'update',doc:d}); await loadDocs(); showToast('อัปเดตตำแหน่งแล้ว ✓'); }
+  catch(e) { setSyncStatus('error','อัปเดตไม่สำเร็จ'); }
 }
 
 function statusBadge(d) {
@@ -346,18 +377,26 @@ function statusBadge(d) {
 }
 
 function fileChips(d) {
-  const files = [d.file1, d.file2, d.file3].filter(Boolean);
+  const files = [
+    {name:d.file1,url:d.file1url},
+    {name:d.file2,url:d.file2url},
+    {name:d.file3,url:d.file3url}
+  ].filter(f=>f.name);
   if(!files.length) return '';
-  return `<div class="doc-attachments">${files.map(f=>`<span class="attach-chip">📎 ${f}</span>`).join('')}</div>`;
+  return `<div class="doc-attachments">${files.map(f=>
+    f.url
+      ? `<a class="attach-chip" href="${f.url}" target="_blank">📎 ${f.name}</a>`
+      : `<span class="attach-chip">📎 ${f.name}</span>`
+  ).join('')}</div>`;
 }
 
 function renderList() {
-  const fc = document.getElementById('fil-company').value;
-  const fs = document.getElementById('fil-status').value;
-  let filtered = docs.filter(d => (!fc||d.co===fc) && (!fs||d.status===fs));
-  const el = document.getElementById('doc-list');
-  if(!filtered.length) { el.innerHTML = '<div class="empty"><span class="empty-icon">📭</span>ยังไม่มีเอกสาร</div>'; return; }
-  el.innerHTML = filtered.map(d => `
+  const fc=document.getElementById('fil-company').value;
+  const fs=document.getElementById('fil-status').value;
+  let filtered=docs.filter(d=>(!fc||d.co===fc)&&(!fs||d.status===fs));
+  const el=document.getElementById('doc-list');
+  if(!filtered.length){el.innerHTML='<div class="empty"><span class="empty-icon">📭</span>ยังไม่มีเอกสาร</div>';return;}
+  el.innerHTML=filtered.map(d=>`
     <div class="doc-card">
       <div class="doc-top">
         <div style="flex:1;min-width:0">
@@ -367,9 +406,9 @@ function renderList() {
         <div>${statusBadge(d)}</div>
       </div>
       <div class="doc-meta">
-        ${d.amount ? `<div class="doc-meta-item">💰 จำนวน <span>${Number(d.amount).toLocaleString('th-TH')} บาท</span></div>` : ''}
-        ${d.date ? `<div class="doc-meta-item">📅 วันที่ <span>${d.date}</span></div>` : ''}
-        ${d.note ? `<div class="doc-meta-item">📝 หมายเหตุ <span>${d.note}</span></div>` : ''}
+        ${d.amount?`<div class="doc-meta-item">💰 จำนวน <span>${Number(d.amount).toLocaleString('th-TH')} บาท</span></div>`:''}
+        ${d.date?`<div class="doc-meta-item">📅 วันที่ <span>${d.date}</span></div>`:''}
+        ${d.note?`<div class="doc-meta-item">📝 หมายเหตุ <span>${d.note}</span></div>`:''}
       </div>
       <div id="loc-view-${d.id}" class="location-row">
         <span>📍</span>
@@ -384,8 +423,8 @@ function renderList() {
       ${fileChips(d)}
       <div class="btn-row">
         ${d.status==='sent'
-          ? `<button class="action-btn" onclick="undoSent(${d.id})">↩ ย้อนสถานะ</button>`
-          : `<button class="action-btn" onclick="openSentModal(${d.id})">✅ ส่งให้บัญชีแล้ว</button>`}
+          ?`<button class="action-btn" onclick="undoSent(${d.id})">↩ ย้อนสถานะ</button>`
+          :`<button class="action-btn" onclick="openSentModal(${d.id})">✅ ส่งให้บัญชีแล้ว</button>`}
         <button class="del-btn" onclick="deleteDoc(${d.id})">🗑</button>
       </div>
     </div>
@@ -393,24 +432,21 @@ function renderList() {
 }
 
 function renderSummary() {
-  const total = docs.length;
-  const waiting = docs.filter(d => d.status==='รอเอกสาร').length;
-  const done = docs.filter(d => d.status==='sent').length;
-  document.getElementById('summary-cards').innerHTML = `
+  const total=docs.length,waiting=docs.filter(d=>d.status==='รอเอกสาร').length,done=docs.filter(d=>d.status==='sent').length;
+  document.getElementById('summary-cards').innerHTML=`
     <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">ทั้งหมด</div></div>
     <div class="stat-card"><div class="stat-num" style="color:#d97706">${waiting}</div><div class="stat-label">รอเอกสาร</div></div>
     <div class="stat-card"><div class="stat-num" style="color:#1D9E75">${done}</div><div class="stat-label">ส่งแล้ว</div></div>
   `;
-  const cos = ['บจก.ปาดังซิตี้เซ็นเตอร์','บจก.ปฐมทิพย์ พัฒนา','บจก.เอส.ซี. คิทเช่นแวร์ เทรดดิ้ง','เอกสารอื่นๆ'];
-  document.getElementById('summary-by-company').innerHTML = cos.map(co => {
-    const cd = docs.filter(d => d.co===co); if(!cd.length) return '';
-    const cw = cd.filter(d => d.status==='รอเอกสาร').length;
-    const cs = cd.filter(d => d.status==='sent').length;
-    return `<div class="company-row">
+  const cos=['บจก.ปาดังซิตี้เซ็นเตอร์','บจก.ปฐมทิพย์ พัฒนา','บจก.เอส.ซี. คิทเช่นแวร์ เทรดดิ้ง','เอกสารอื่นๆ'];
+  document.getElementById('summary-by-company').innerHTML=cos.map(co=>{
+    const cd=docs.filter(d=>d.co===co);if(!cd.length)return'';
+    const cw=cd.filter(d=>d.status==='รอเอกสาร').length,cs=cd.filter(d=>d.status==='sent').length;
+    return`<div class="company-row">
       <span style="font-size:14px">${co}</span>
       <div style="display:flex;gap:6px;align-items:center">
-        ${cw ? `<span class="badge badge-wait">${cw} รอ</span>` : ''}
-        ${cs ? `<span class="badge badge-sent">${cs} ส่งแล้ว</span>` : ''}
+        ${cw?`<span class="badge badge-wait">${cw} รอ</span>`:''}
+        ${cs?`<span class="badge badge-sent">${cs} ส่งแล้ว</span>`:''}
         <span style="font-size:12px;color:#aaa">${cd.length} รายการ</span>
       </div>
     </div>`;
