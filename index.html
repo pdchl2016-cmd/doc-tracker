@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบติดตามเอกสาร</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:sans-serif;color:#1a1a1a;background:#f5f5f3;min-height:100vh}
+.header{background:#fff;border-bottom:1px solid #e5e5e5;padding:12px 16px;position:sticky;top:0;z-index:10}
+.header h1{font-size:17px;font-weight:600}
+.sync-bar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:#f0f0ee;font-size:13px;color:#666;border-bottom:1px solid #e5e5e5}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#1D9E75;flex-shrink:0}
+.sync-dot.loading{background:#f59e0b;animation:pulse 1s infinite}
+.sync-dot.error{background:#ef4444}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.tabs{display:flex;border-bottom:1px solid #e5e5e5;background:#fff}
+.tab{flex:1;padding:12px 8px;font-size:14px;cursor:pointer;border:none;background:none;color:#888;border-bottom:2px solid transparent;font-family:sans-serif}
+.tab.active{color:#2563eb;border-bottom-color:#2563eb;font-weight:500}
+.section{display:none;padding:16px}.section.active{display:block}
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+label{font-size:13px;color:#666;font-weight:500}
+select,input,textarea{width:100%;font-family:sans-serif;font-size:15px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#1a1a1a}
+textarea{resize:vertical;min-height:72px}
+.file-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.file-box{border:1.5px dashed #ccc;border-radius:8px;padding:10px 6px;text-align:center;cursor:pointer;background:#fafafa;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.file-box.has-file{border-color:#2563eb;background:#eff6ff}
+.file-box-label{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:#888;font-size:12px;width:100%}
+.file-icon{font-size:22px}
+.file-name{font-size:11px;color:#2563eb;word-break:break-all;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.file-clear{font-size:11px;color:#ef4444;cursor:pointer;background:none;border:none;padding:0;margin-top:2px;font-family:sans-serif}
+.btn-submit{width:100%;padding:12px;font-size:16px;font-weight:600;cursor:pointer;background:#2563eb;color:#fff;border:none;border-radius:8px;margin-top:4px}
+.btn-submit:active{background:#1d4ed8}
+.badge{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;white-space:nowrap}
+.badge-wait{background:#fef3c7;color:#92400e}
+.badge-sent{background:#d1fae5;color:#065f46}
+.filter-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filter-row select{width:auto;font-size:13px;padding:7px 10px}
+.doc-card{background:#fff;border:1px solid #e5e5e5;border-radius:12px;padding:14px;margin-bottom:10px}
+.doc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
+.doc-title{font-size:15px;font-weight:600;line-height:1.3}
+.doc-company{font-size:12px;color:#999;margin-top:2px}
+.doc-meta{margin-bottom:6px}
+.doc-meta-item{font-size:13px;color:#666;margin-bottom:2px}
+.doc-meta-item span{color:#1a1a1a}
+.location-row{display:flex;align-items:center;gap:6px;margin-top:8px;padding:8px 10px;background:#f5f5f3;border-radius:8px;border:1px solid #e5e5e5}
+.location-text{font-size:13px;flex:1;color:#1a1a1a}
+.location-empty{color:#aaa;font-style:italic}
+.edit-loc-btn{font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid #ddd;background:#fff;cursor:pointer;color:#666;white-space:nowrap}
+.inline-edit{display:none;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.inline-edit.open{display:flex}
+.inline-edit input{flex:1;min-width:0;font-size:13px;padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-family:sans-serif}
+.btn-save-loc{padding:7px 12px;border-radius:6px;background:#2563eb;color:#fff;border:none;font-size:13px;cursor:pointer;font-family:sans-serif}
+.btn-cancel-loc{padding:7px 12px;border-radius:6px;background:#f5f5f3;color:#666;border:1px solid #ddd;font-size:13px;cursor:pointer;font-family:sans-serif}
+.doc-attachments{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.attach-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:4px 8px;border:1px solid #e5e5e5;border-radius:16px;color:#666;background:#fafafa}
+.btn-row{display:flex;gap:8px;margin-top:10px}
+.action-btn{flex:1;font-size:13px;padding:8px;cursor:pointer;border-radius:8px;border:1px solid #ddd;background:#f5f5f3;color:#1a1a1a;font-family:sans-serif}
+.del-btn{padding:8px 12px;cursor:pointer;border-radius:8px;border:1px solid #fca5a5;background:#fef2f2;color:#ef4444;font-size:13px;font-family:sans-serif}
+.empty{text-align:center;padding:3rem 1rem;color:#aaa}
+.empty-icon{font-size:40px;display:block;margin-bottom:8px}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1.5rem}
+.stat-card{background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:14px;text-align:center}
+.stat-num{font-size:28px;font-weight:700;line-height:1.2}
+.stat-label{font-size:12px;color:#888;margin-top:4px}
+.company-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:320px}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:12px}
+.modal input{width:100%;margin-bottom:12px;font-size:15px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-family:sans-serif}
+.modal-btns{display:flex;gap:8px}
+.modal-btns button{flex:1;padding:10px;border-radius:8px;cursor:pointer;font-size:15px;font-family:sans-serif}
+.btn-confirm{background:#2563eb;color:#fff;border:none;font-weight:500}
+.btn-mcancel{background:#f5f5f3;color:#1a1a1a;border:1px solid #ddd}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1D9E75;color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;transition:transform 0.3s,opacity 0.3s;z-index:200;opacity:0;pointer-events:none;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📄 ระบบติดตามเอกสาร</h1>
+</div>
+
+<div class="sync-bar">
+  <div class="sync-dot" id="sync-dot"></div>
+  <span id="sync-status">กำลังโหลดข้อมูล...</span>
+  <button onclick="loadDocs()" style="margin-left:auto;font-size:12px;padding:4px 10px;border-radius:6px;border:1px solid #ddd;background:#fff;cursor:pointer;color:#666">↻ รีเฟรช</button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('add')">+ เพิ่มเอกสาร</button>
+  <button class="tab" onclick="switchTab('list')">☰ รายการ</button>
+  <button class="tab" onclick="switchTab('summary')">📊 สรุป</button>
+</div>
+
+<div id="tab-add" class="section active">
+  <div class="form-group">
+    <label>บริษัท *</label>
+    <select id="f-company">
+      <option value="">-- เลือกบริษัท --</option>
+      <option>บจก.ปาดังซิตี้เซ็นเตอร์</option>
+      <option>บจก.ปฐมทิพย์ พัฒนา</option>
+      <option>บจก.เอส.ซี. คิทเช่นแวร์ เทรดดิ้ง</option>
+      <option>เอกสารอื่นๆ</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>ชื่อรายการ / ผู้ขาย / รายละเอียด *</label>
+    <input type="text" id="f-desc" placeholder="เช่น ค่าน้ำมัน บริษัท ABC จำกัด">
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="form-group">
+      <label>จำนวนเงิน (บาท)</label>
+      <input type="number" id="f-amount" placeholder="0.00">
+    </div>
+    <div class="form-group">
+      <label>วันที่เอกสาร</label>
+      <input type="date" id="f-date">
+    </div>
+  </div>
+  <div class="form-group">
+    <label>เอกสารอยู่ที่ใคร / สำนักงานไหน</label>
+    <input type="text" id="f-location" placeholder="เช่น คุณสมใจ / สำนักงานหาดใหญ่">
+  </div>
+  <div class="form-group">
+    <label>หมายเหตุ</label>
+    <textarea id="f-note" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"></textarea>
+  </div>
+  <label style="font-size:13px;color:#666;font-weight:500;display:block;margin-bottom:8px">แนบไฟล์เอกสาร (รูปหรือ PDF ไม่เกิน 3 ไฟล์)</label>
+  <div class="file-grid">
+    <div class="file-box" id="fbox-1">
+      <label class="file-box-label" for="f-file1">
+        <span class="file-icon">📎</span>
+        ไฟล์ที่ 1
+        <input type="file" id="f-file1" accept="image/*,.pdf" style="display:none" onchange="pickFile(1)">
+      </label>
+      <div class="file-name" id="fname-1"></div>
+      <button class="file-clear" id="fclear-1" style="display:none" onclick="clearFile(1)">✕ ลบ</button>
+    </div>
+    <div class="file-box" id="fbox-2">
+      <label class="file-box-label" for="f-file2">
+        <span class="file-icon">📎</span>
+        ไฟล์ที่ 2
+        <input type="file" id="f-file2" accept="image/*,.pdf" style="display:none" onchange="pickFile(2)">
+      </label>
+      <div class="file-name" id="fname-2"></div>
+      <button class="file-clear" id="fclear-2" style="display:none" onclick="clearFile(2)">✕ ลบ</button>
+    </div>
+    <div class="file-box" id="fbox-3">
+      <label class="file-box-label" for="f-file3">
+        <span class="file-icon">📎</span>
+        ไฟล์ที่ 3
+        <input type="file" id="f-file3" accept="image/*,.pdf" style="display:none" onchange="pickFile(3)">
+      </label>
+      <div class="file-name" id="fname-3"></div>
+      <button class="file-clear" id="fclear-3" style="display:none" onclick="clearFile(3)">✕ ลบ</button>
+    </div>
+  </div>
+  <button class="btn-submit" onclick="addDoc()">บันทึกเอกสาร</button>
+</div>
+
+<div id="tab-list" class="section">
+  <div class="filter-row">
+    <select id="fil-company" onchange="renderList()">
+      <option value="">ทุกบริษัท</option>
+      <option>บจก.ปาดังซิตี้เซ็นเตอร์</option>
+      <option>บจก.ปฐมทิพย์ พัฒนา</option>
+      <option>บจก.เอส.ซี. คิทเช่นแวร์ เทรดดิ้ง</option>
+      <option>เอกสารอื่นๆ</option>
+    </select>
+    <select id="fil-status" onchange="renderList()">
+      <option value="">ทุกสถานะ</option>
+      <option value="รอเอกสาร">รอเอกสาร</option>
+      <option value="sent">ส่งให้บัญชีแล้ว</option>
+    </select>
+  </div>
+  <div id="doc-list"></div>
+</div>
+
+<div id="tab-summary" class="section">
+  <div class="summary-grid" id="summary-cards"></div>
+  <div id="summary-by-company"></div>
+</div>
+
+<div class="modal-bg" id="modal-sent">
+  <div class="modal">
+    <h3>✅ ส่งให้ฝ่ายบัญชีแล้ว</h3>
+    <label style="font-size:13px;color:#666;display:block;margin-bottom:6px">ชื่อผู้รับเอกสาร</label>
+    <input type="text" id="modal-name" placeholder="เช่น คุณนิภา / คุณสมชาย">
+    <div class="modal-btns">
+      <button class="btn-mcancel" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn-confirm" onclick="confirmSent()">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbyFJVWASiQjU5VNhKrq-OJVLvkUIYzblz2vwnSUx0PmUjsalAQrg_XeYUyLu75ODS-5/exec';
+let docs = [];
+let pendingId = null;
+let fileNames = {1:'',2:'',3:''};
+
+function pickFile(n) {
+  const f = document.getElementById('f-file'+n).files[0];
+  if(!f) return;
+  fileNames[n] = f.name;
+  document.getElementById('fname-'+n).textContent = f.name;
+  document.getElementById('fclear-'+n).style.display = '';
+  document.getElementById('fbox-'+n).classList.add('has-file');
+}
+function clearFile(n) {
+  fileNames[n] = '';
+  document.getElementById('f-file'+n).value = '';
+  document.getElementById('fname-'+n).textContent = '';
+  document.getElementById('fclear-'+n).style.display = 'none';
+  document.getElementById('fbox-'+n).classList.remove('has-file');
+}
+function clearAllFiles() { [1,2,3].forEach(n => clearFile(n)); }
+
+function setSyncStatus(state, msg) {
+  const dot = document.getElementById('sync-dot');
+  dot.className = 'sync-dot' + (state==='loading'?' loading':state==='error'?' error':'');
+  document.getElementById('sync-status').textContent = msg;
+}
+
+async function callAPI(params) {
+  const url = new URL(API);
+  Object.keys(params).forEach(k => {
+    url.searchParams.set(k, typeof params[k]==='object' ? JSON.stringify(params[k]) : params[k]);
+  });
+  const res = await fetch(url.toString(), {redirect:'follow'});
+  return res.json();
+}
+
+async function loadDocs() {
+  setSyncStatus('loading', 'กำลังโหลดข้อมูล...');
+  try {
+    const data = await callAPI({action:'getAll'});
+    if(data.ok) {
+      docs = (data.docs || []).reverse();
+      setSyncStatus('ok', 'ซิงค์แล้ว · ' + new Date().toLocaleTimeString('th-TH'));
+      renderList(); renderSummary();
+    } else setSyncStatus('error', 'โหลดไม่สำเร็จ');
+  } catch(e) { setSyncStatus('error', 'เชื่อมต่อไม่ได้'); }
+}
+
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach((b,i) => b.classList.toggle('active', ['add','list','summary'][i]===t));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='list') renderList();
+  if(t==='summary') renderSummary();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function addDoc() {
+  const co = document.getElementById('f-company').value;
+  const desc = document.getElementById('f-desc').value.trim();
+  if(!co || !desc) { showToast('กรุณากรอกบริษัทและชื่อรายการ'); return; }
+  const doc = {
+    id: Date.now(), co, desc,
+    amount: document.getElementById('f-amount').value,
+    date: document.getElementById('f-date').value,
+    loc: document.getElementById('f-location').value.trim(),
+    note: document.getElementById('f-note').value.trim(),
+    file1: fileNames[1], file2: fileNames[2], file3: fileNames[3],
+    status: 'รอเอกสาร', receiver: '',
+    created: new Date().toLocaleDateString('th-TH')
+  };
+  setSyncStatus('loading', 'กำลังบันทึก...');
+  try {
+    const res = await callAPI({action:'add', doc});
+    if(res.ok) {
+      ['f-company','f-desc','f-amount','f-date','f-location','f-note'].forEach(id => document.getElementById(id).value='');
+      clearAllFiles();
+      showToast('บันทึกเรียบร้อย ✓');
+      await loadDocs();
+    } else showToast('บันทึกไม่สำเร็จ');
+  } catch(e) { setSyncStatus('error', 'บันทึกไม่สำเร็จ'); }
+}
+
+function openSentModal(id) {
+  pendingId = id;
+  document.getElementById('modal-name').value = '';
+  document.getElementById('modal-sent').classList.add('open');
+  setTimeout(() => document.getElementById('modal-name').focus(), 100);
+}
+function closeModal() { document.getElementById('modal-sent').classList.remove('open'); pendingId = null; }
+
+async function confirmSent() {
+  const name = document.getElementById('modal-name').value.trim();
+  if(!name) { document.getElementById('modal-name').focus(); return; }
+  const d = docs.find(x => x.id == pendingId);
+  if(d) { d.status = 'sent'; d.receiver = name; }
+  closeModal();
+  setSyncStatus('loading', 'กำลังอัปเดต...');
+  try { const res = await callAPI({action:'update', doc:d}); if(res.ok) { showToast('ส่งให้คุณ'+name+' เรียบร้อย ✓'); await loadDocs(); } }
+  catch(e) { setSyncStatus('error', 'อัปเดตไม่สำเร็จ'); }
+}
+
+async function undoSent(id) {
+  const d = docs.find(x => x.id == id);
+  if(d) { d.status = 'รอเอกสาร'; d.receiver = ''; }
+  setSyncStatus('loading', 'กำลังอัปเดต...');
+  try { await callAPI({action:'update', doc:d}); await loadDocs(); showToast('ย้อนสถานะแล้ว'); }
+  catch(e) { setSyncStatus('error', 'อัปเดตไม่สำเร็จ'); }
+}
+
+async function deleteDoc(id) {
+  if(!confirm('ลบรายการนี้?')) return;
+  setSyncStatus('loading', 'กำลังลบ...');
+  try { await callAPI({action:'delete', id}); await loadDocs(); showToast('ลบแล้ว'); }
+  catch(e) { setSyncStatus('error', 'ลบไม่สำเร็จ'); }
+}
+
+function showLocEdit(id) {
+  document.getElementById('loc-view-'+id).style.display = 'none';
+  const ed = document.getElementById('loc-edit-'+id);
+  ed.classList.add('open'); ed.querySelector('input').focus();
+}
+function cancelLocEdit(id) {
+  document.getElementById('loc-view-'+id).style.display = '';
+  document.getElementById('loc-edit-'+id).classList.remove('open');
+}
+async function saveLocEdit(id) {
+  const val = document.getElementById('loc-input-'+id).value.trim();
+  const d = docs.find(x => x.id == id);
+  if(d) d.loc = val;
+  setSyncStatus('loading', 'กำลังอัปเดต...');
+  try { await callAPI({action:'update', doc:d}); await loadDocs(); showToast('อัปเดตตำแหน่งแล้ว ✓'); }
+  catch(e) { setSyncStatus('error', 'อัปเดตไม่สำเร็จ'); }
+}
+
+function statusBadge(d) {
+  if(d.status==='sent') return `<span class="badge badge-sent">✓ ส่งให้คุณ${d.receiver}แล้ว</span>`;
+  return `<span class="badge badge-wait">⏳ รอเอกสาร</span>`;
+}
+
+function fileChips(d) {
+  const files = [d.file1, d.file2, d.file3].filter(Boolean);
+  if(!files.length) return '';
+  return `<div class="doc-attachments">${files.map(f=>`<span class="attach-chip">📎 ${f}</span>`).join('')}</div>`;
+}
+
+function renderList() {
+  const fc = document.getElementById('fil-company').value;
+  const fs = document.getElementById('fil-status').value;
+  let filtered = docs.filter(d => (!fc||d.co===fc) && (!fs||d.status===fs));
+  const el = document.getElementById('doc-list');
+  if(!filtered.length) { el.innerHTML = '<div class="empty"><span class="empty-icon">📭</span>ยังไม่มีเอกสาร</div>'; return; }
+  el.innerHTML = filtered.map(d => `
+    <div class="doc-card">
+      <div class="doc-top">
+        <div style="flex:1;min-width:0">
+          <div class="doc-title">${d.desc}</div>
+          <div class="doc-company">${d.co}</div>
+        </div>
+        <div>${statusBadge(d)}</div>
+      </div>
+      <div class="doc-meta">
+        ${d.amount ? `<div class="doc-meta-item">💰 จำนวน <span>${Number(d.amount).toLocaleString('th-TH')} บาท</span></div>` : ''}
+        ${d.date ? `<div class="doc-meta-item">📅 วันที่ <span>${d.date}</span></div>` : ''}
+        ${d.note ? `<div class="doc-meta-item">📝 หมายเหตุ <span>${d.note}</span></div>` : ''}
+      </div>
+      <div id="loc-view-${d.id}" class="location-row">
+        <span>📍</span>
+        <span class="location-text ${d.loc?'':'location-empty'}">${d.loc||'ยังไม่ได้ระบุตำแหน่ง'}</span>
+        <button class="edit-loc-btn" onclick="showLocEdit(${d.id})">✏️ แก้ไข</button>
+      </div>
+      <div id="loc-edit-${d.id}" class="inline-edit">
+        <input type="text" id="loc-input-${d.id}" value="${d.loc||''}" placeholder="เช่น คุณนิภา / สำนักงานสงขลา" onkeydown="if(event.key==='Enter')saveLocEdit(${d.id});if(event.key==='Escape')cancelLocEdit(${d.id})">
+        <button class="btn-save-loc" onclick="saveLocEdit(${d.id})">บันทึก</button>
+        <button class="btn-cancel-loc" onclick="cancelLocEdit(${d.id})">ยกเลิก</button>
+      </div>
+      ${fileChips(d)}
+      <div class="btn-row">
+        ${d.status==='sent'
+          ? `<button class="action-btn" onclick="undoSent(${d.id})">↩ ย้อนสถานะ</button>`
+          : `<button class="action-btn" onclick="openSentModal(${d.id})">✅ ส่งให้บัญชีแล้ว</button>`}
+        <button class="del-btn" onclick="deleteDoc(${d.id})">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderSummary() {
+  const total = docs.length;
+  const waiting = docs.filter(d => d.status==='รอเอกสาร').length;
+  const done = docs.filter(d => d.status==='sent').length;
+  document.getElementById('summary-cards').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">ทั้งหมด</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#d97706">${waiting}</div><div class="stat-label">รอเอกสาร</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#1D9E75">${done}</div><div class="stat-label">ส่งแล้ว</div></div>
+  `;
+  const cos = ['บจก.ปาดังซิตี้เซ็นเตอร์','บจก.ปฐมทิพย์ พัฒนา','บจก.เอส.ซี. คิทเช่นแวร์ เทรดดิ้ง','เอกสารอื่นๆ'];
+  document.getElementById('summary-by-company').innerHTML = cos.map(co => {
+    const cd = docs.filter(d => d.co===co); if(!cd.length) return '';
+    const cw = cd.filter(d => d.status==='รอเอกสาร').length;
+    const cs = cd.filter(d => d.status==='sent').length;
+    return `<div class="company-row">
+      <span style="font-size:14px">${co}</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        ${cw ? `<span class="badge badge-wait">${cw} รอ</span>` : ''}
+        ${cs ? `<span class="badge badge-sent">${cs} ส่งแล้ว</span>` : ''}
+        <span style="font-size:12px;color:#aaa">${cd.length} รายการ</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+loadDocs();
+</script>
+</body>
+</html>
