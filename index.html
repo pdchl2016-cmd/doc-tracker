@@ -23,14 +23,15 @@ label{font-size:13px;color:#666;font-weight:500}
 select,input,textarea{width:100%;font-family:sans-serif;font-size:15px;padding:10px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#1a1a1a}
 textarea{resize:vertical;min-height:72px}
 .file-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
-.file-box{border:1.5px dashed #ccc;border-radius:8px;padding:10px 6px;text-align:center;cursor:pointer;background:#fafafa;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative}
+.file-box{border:1.5px dashed #ccc;border-radius:8px;padding:10px 6px;text-align:center;cursor:pointer;background:#fafafa;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .file-box.has-file{border-color:#2563eb;background:#eff6ff}
 .file-box.uploading{border-color:#f59e0b;background:#fffbeb}
+.file-box.error{border-color:#ef4444;background:#fef2f2}
 .file-box-label{cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:#888;font-size:12px;width:100%}
 .file-icon{font-size:22px}
 .file-name{font-size:11px;color:#2563eb;word-break:break-all;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.file-status{font-size:11px;margin-top:2px}
 .file-clear{font-size:11px;color:#ef4444;cursor:pointer;background:none;border:none;padding:0;margin-top:2px;font-family:sans-serif}
-.upload-progress{font-size:11px;color:#f59e0b;margin-top:2px}
 .btn-submit{width:100%;padding:12px;font-size:16px;font-weight:600;cursor:pointer;background:#2563eb;color:#fff;border:none;border-radius:8px;margin-top:4px}
 .btn-submit:disabled{background:#93c5fd;cursor:not-allowed}
 .badge{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;white-space:nowrap}
@@ -131,19 +132,19 @@ textarea{resize:vertical;min-height:72px}
     <div class="file-box" id="fbox-1">
       <label class="file-box-label" for="f-file1"><span class="file-icon">📎</span>ไฟล์ที่ 1<input type="file" id="f-file1" accept="image/*,.pdf" style="display:none" onchange="pickFile(1)"></label>
       <div class="file-name" id="fname-1"></div>
-      <div class="upload-progress" id="fprog-1" style="display:none">กำลังอัปโหลด...</div>
+      <div class="file-status" id="fstatus-1"></div>
       <button class="file-clear" id="fclear-1" style="display:none" onclick="clearFile(1)">✕ ลบ</button>
     </div>
     <div class="file-box" id="fbox-2">
       <label class="file-box-label" for="f-file2"><span class="file-icon">📎</span>ไฟล์ที่ 2<input type="file" id="f-file2" accept="image/*,.pdf" style="display:none" onchange="pickFile(2)"></label>
       <div class="file-name" id="fname-2"></div>
-      <div class="upload-progress" id="fprog-2" style="display:none">กำลังอัปโหลด...</div>
+      <div class="file-status" id="fstatus-2"></div>
       <button class="file-clear" id="fclear-2" style="display:none" onclick="clearFile(2)">✕ ลบ</button>
     </div>
     <div class="file-box" id="fbox-3">
       <label class="file-box-label" for="f-file3"><span class="file-icon">📎</span>ไฟล์ที่ 3<input type="file" id="f-file3" accept="image/*,.pdf" style="display:none" onchange="pickFile(3)"></label>
       <div class="file-name" id="fname-3"></div>
-      <div class="upload-progress" id="fprog-3" style="display:none">กำลังอัปโหลด...</div>
+      <div class="file-status" id="fstatus-3"></div>
       <button class="file-clear" id="fclear-3" style="display:none" onclick="clearFile(3)">✕ ลบ</button>
     </div>
   </div>
@@ -191,63 +192,94 @@ const API = 'https://script.google.com/macros/s/AKfycbyFJVWASiQjU5VNhKrq-OJVLvkU
 let docs = [];
 let pendingId = null;
 let fileData = {1:{name:'',url:''},2:{name:'',url:''},3:{name:'',url:''}};
+let uploading = {1:false,2:false,3:false};
+
+function setFileStatus(n, state, msg) {
+  const box = document.getElementById('fbox-'+n);
+  const status = document.getElementById('fstatus-'+n);
+  box.className = 'file-box' + (state==='ok'?' has-file':state==='loading'?' uploading':state==='error'?' error':'');
+  status.textContent = msg;
+  status.style.color = state==='ok'?'#1D9E75':state==='error'?'#ef4444':'#f59e0b';
+  uploading[n] = state==='loading';
+  const anyUploading = Object.values(uploading).some(v=>v);
+  document.getElementById('btn-save').disabled = anyUploading;
+}
 
 async function uploadFile(n, file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async function(e) {
-      try {
+    // compress/resize if image and > 1MB
+    if (file.type.startsWith('image/') && file.size > 1000000) {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let w = img.width, h = img.height;
+          const max = 1200;
+          if(w > max || h > max) {
+            if(w > h) { h = Math.round(h*max/w); w = max; }
+            else { w = Math.round(w*max/h); h = max; }
+          }
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+          sendToAPI(n, file.name, 'image/jpeg', base64, resolve, reject);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = function(e) {
         const base64 = e.target.result.split(',')[1];
-        const url = new URL(API);
-        url.searchParams.set('action', 'upload');
-        url.searchParams.set('filename', file.name);
-        url.searchParams.set('mimetype', file.type || 'application/octet-stream');
-        url.searchParams.set('data', base64);
-        const res = await fetch(url.toString(), {redirect:'follow'});
-        const data = await res.json();
-        if(data.ok) resolve(data);
-        else reject(data.error);
-      } catch(err) { reject(err); }
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+        sendToAPI(n, file.name, file.type||'application/octet-stream', base64, resolve, reject);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    }
   });
+}
+
+async function sendToAPI(n, filename, mimetype, base64, resolve, reject) {
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'action=upload&filename='+encodeURIComponent(filename)+'&mimetype='+encodeURIComponent(mimetype)+'&data='+encodeURIComponent(base64),
+      redirect: 'follow'
+    });
+    const data = await res.json();
+    if(data.ok) resolve(data);
+    else reject(data.error||'upload failed');
+  } catch(err) { reject(err); }
 }
 
 async function pickFile(n) {
   const file = document.getElementById('f-file'+n).files[0];
   if(!file) return;
   document.getElementById('fname-'+n).textContent = file.name;
-  document.getElementById('fprog-'+n).style.display = '';
-  document.getElementById('fbox-'+n).classList.add('uploading');
-  document.getElementById('fbox-'+n).classList.remove('has-file');
-  document.getElementById('btn-save').disabled = true;
+  setFileStatus(n, 'loading', 'กำลังอัปโหลด...');
   try {
     const result = await uploadFile(n, file);
     fileData[n] = {name: file.name, url: result.url};
-    document.getElementById('fprog-'+n).style.display = 'none';
-    document.getElementById('fbox-'+n).classList.remove('uploading');
-    document.getElementById('fbox-'+n).classList.add('has-file');
+    setFileStatus(n, 'ok', '✓ อัปโหลดแล้ว');
     document.getElementById('fclear-'+n).style.display = '';
     showToast('อัปโหลดไฟล์ที่ '+n+' สำเร็จ ✓');
   } catch(err) {
-    document.getElementById('fprog-'+n).textContent = 'อัปโหลดไม่สำเร็จ';
-    document.getElementById('fbox-'+n).classList.remove('uploading');
-    showToast('อัปโหลดไฟล์ไม่สำเร็จ');
+    setFileStatus(n, 'error', '✕ ไม่สำเร็จ');
+    showToast('อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง');
   }
-  // check if all uploads done
-  const anyUploading = [1,2,3].some(i => document.getElementById('fprog-'+i).style.display !== 'none' && document.getElementById('fprog-'+i).textContent === 'กำลังอัปโหลด...');
-  if(!anyUploading) document.getElementById('btn-save').disabled = false;
 }
 
 function clearFile(n) {
   fileData[n] = {name:'',url:''};
   document.getElementById('f-file'+n).value = '';
   document.getElementById('fname-'+n).textContent = '';
-  document.getElementById('fprog-'+n).style.display = 'none';
-  document.getElementById('fprog-'+n).textContent = 'กำลังอัปโหลด...';
+  document.getElementById('fstatus-'+n).textContent = '';
   document.getElementById('fclear-'+n).style.display = 'none';
-  document.getElementById('fbox-'+n).classList.remove('has-file','uploading');
+  document.getElementById('fbox-'+n).className = 'file-box';
+  uploading[n] = false;
+  document.getElementById('btn-save').disabled = false;
 }
 function clearAllFiles() { [1,2,3].forEach(n => clearFile(n)); }
 
@@ -384,9 +416,8 @@ function fileChips(d) {
   ].filter(f=>f.name);
   if(!files.length) return '';
   return `<div class="doc-attachments">${files.map(f=>
-    f.url
-      ? `<a class="attach-chip" href="${f.url}" target="_blank">📎 ${f.name}</a>`
-      : `<span class="attach-chip">📎 ${f.name}</span>`
+    f.url ? `<a class="attach-chip" href="${f.url}" target="_blank">📎 ${f.name}</a>`
+          : `<span class="attach-chip">📎 ${f.name}</span>`
   ).join('')}</div>`;
 }
 
